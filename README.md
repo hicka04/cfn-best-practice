@@ -1,0 +1,1 @@
+# cfn-best-practice
