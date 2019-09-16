@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+  SystemName:
+    Type: String
+    Default: web
+    AllowedPattern: ^web$
+  NetworkStack:
+    Type: String
+  ImageId:
+    Type: AWS::EC2::Image::Id
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Metadata
+        Parameters:
+          - Env
+          - SystemName
+      - Label:
+          default: Dependent Stacks
+        Parameters:
+          - NetworkStack
+
+Resources:
+  # LoadBalancer
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${SystemName}-${Env}-alb
+      Type: application
+      Scheme: internet-facing
+      Subnets:
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-PublicSubnetAZ1
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-PublicSubnetAZ2
+      SecurityGroups:
+        - !Ref SgAlb
+  ## Listener
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref Tg
+  # Target Group
+  Tg:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${SystemName}-${Env}-tg
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-Vpc
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      Targets:
+        - Id: !Ref InstanceAZ1
+        - Id: !Ref InstanceAZ2
+  # Instance
+  InstanceAZ1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      SubnetId:
+        Fn::ImportValue:
+            !Sub ${NetworkStack}-PrivateSubnetAZ1
+      SecurityGroupIds:
+        - !Ref SgInstance
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${Env}-instance-az1
+  InstanceAZ2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      SubnetId:
+        Fn::ImportValue:
+            !Sub ${NetworkStack}-PrivateSubnetAZ2
+      SecurityGroupIds:
+        - !Ref SgInstance
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${Env}-instance-az2
+  # Security Group
+  ## LoadBalancer
+  SgAlb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${SystemName}-${Env}-alb-sg
+      GroupDescription: !Sub ${SystemName}-${Env}-alb-sg
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${Env}-alb-sg
+  ## Instance
+  SgInstance:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${SystemName}-${Env}-instance-sg
+      GroupDescription: !Sub ${SystemName}-${Env}-instance-sg
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref SgAlb
+      Tags:
+        - Key: Name
+          Value: !Sub ${SystemName}-${Env}-instance-sg
