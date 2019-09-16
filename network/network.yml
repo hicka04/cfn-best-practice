@@ -1,0 +1,224 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Env:
+    Type: String
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+  SystemName:
+    Type: String
+    Default: network
+    AllowedPattern: ^network$
+  VpcCidr:
+    Type: String
+    AllowedPattern: ^(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/(1[6-9]|2[0-9]|3[0-2])$
+    Default: 10.0.0.0/16
+  PublicSubnetAZ1Cidr:
+    Type: String
+    AllowedPattern: ^(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/(1[6-9]|2[0-9]|3[0-2])$
+    Default: 10.0.0.0/24
+  PublicSubnetAZ2Cidr:
+    Type: String
+    AllowedPattern: ^(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/(1[6-9]|2[0-9]|3[0-2])$
+    Default: 10.0.1.0/24
+  PrivateSubnetAZ1Cidr:
+    Type: String
+    AllowedPattern: ^(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/(1[6-9]|2[0-9]|3[0-2])$
+    Default: 10.0.2.0/23
+  PrivateSubnetAZ2Cidr:
+    Type: String
+    AllowedPattern: ^(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/(1[6-9]|2[0-9]|3[0-2])$
+    Default: 10.0.4.0/23
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Metadata
+        Parameters:
+          - Env
+          - SystemName
+      - Label:
+          default: CIDR
+        Parameters:
+          - VpcCidr
+          - PublicSubnetAZ1Cidr
+          - PublicSubnetAZ2Cidr
+          - PrivateSubnetAZ1Cidr
+          - PrivateSubnetAZ2Cidr
+
+Resources:
+  # VPC
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-vpc
+  # Subnets
+  ## Public Subnets
+  PublicSubnetAZ1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnetAZ1Cidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-public-subnet1
+  PublicSubnetAZ2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PublicSubnetAZ2Cidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-public-subnet2
+  ## Private Subnets
+  PrivateSubnetAZ1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetAZ1Cidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-private-subnet1
+  PrivateSubnetAZ2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1c
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref PrivateSubnetAZ2Cidr
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-private-subnet2
+  # Internet Gateway
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-igw
+  IgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref Igw
+  # NAT Gateway
+  NgwAZ1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EipForNgw1.AllocationId
+      SubnetId: !Ref PublicSubnetAZ1
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-ngw1
+  NgwAZ2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EipForNgw2.AllocationId
+      SubnetId: !Ref PublicSubnetAZ2
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-ngw2
+  ## EIP for NAT Gateway
+  EipForNgw1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  EipForNgw2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  # RouteTable
+  ## Public
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-public-rtb
+  PublicRouteDefault:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+  ### Public RouteTable Association
+  PublicRouteTableAssociationAZ1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetAZ1
+      RouteTableId: !Ref PublicRouteTable
+  PublicRouteTableAssociationAZ2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetAZ2
+      RouteTableId: !Ref PublicRouteTable
+  ## Private
+  PrivateRouteTableAZ1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-private-rtb1
+  PrivateRouteDefaultAZ1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableAZ1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NgwAZ1
+  PrivateRouteTableAZ2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${Env}-private-rtb1
+  PrivateRouteDefaultAZ2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableAZ2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NgwAZ2
+  ### Private RouteTable Association
+  PrivateRouteTableAssociationAZ1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetAZ1
+      RouteTableId: !Ref PrivateRouteTableAZ1
+  PrivateRouteTableAssociationAZ2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetAZ2
+      RouteTableId: !Ref PrivateRouteTableAZ2
+
+Outputs:
+  Vpc:
+    Value: !Ref Vpc
+    Export:
+      Name: !Sub ${AWS::StackName}-Vpc
+  PublicSubnetAZ1:
+    Value: !Ref PublicSubnetAZ1
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnetAZ1
+  PublicSubnetAZ2:
+    Value: !Ref PublicSubnetAZ2
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnetAZ2
+  PrivateSubnetAZ1:
+    Value: !Ref PrivateSubnetAZ1
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnetAZ1
+  PrivateSubnetAZ1:
+    Value: !Ref PrivateSubnetAZ1
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnetAZ1
