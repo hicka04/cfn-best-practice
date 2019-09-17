@@ -14,6 +14,10 @@ Parameters:
     Type: String
   ImageId:
     Type: AWS::EC2::Image::Id
+  AlbCidr:
+    Type: String
+    AllowedPattern: ^(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/([1-2]?[0-9]|3[0-2])$
+    Default: 0.0.0.0/0
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -108,7 +112,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref AlbCidr
       Tags:
         - Key: Name
           Value: !Sub ${SystemName}-${Env}-alb-sg
