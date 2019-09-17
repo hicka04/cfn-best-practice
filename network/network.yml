@@ -151,13 +151,13 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref Igw
-  ### Public RouteTable Association
-  PublicRouteTableAssociationAZ1:
+  ### RouteTable Association PublicSubnets
+  RouteTableAssociationPublicSubnetAZ1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnetAZ1
       RouteTableId: !Ref PublicRouteTable
-  PublicRouteTableAssociationAZ2:
+  RouteTableAssociationPublicSubnetAZ2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnetAZ2
@@ -189,13 +189,13 @@ Resources:
       RouteTableId: !Ref PrivateRouteTableAZ2
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NgwAZ2
-  ### Private RouteTable Association
-  PrivateRouteTableAssociationAZ1:
+  ### RouteTable Association PrivateSubnets
+  RouteTableAssociationPrivateSubnetAZ1:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnetAZ1
       RouteTableId: !Ref PrivateRouteTableAZ1
-  PrivateRouteTableAssociationAZ2:
+  RouteTableAssociationPrivateSubnetAZ2:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PrivateSubnetAZ2
