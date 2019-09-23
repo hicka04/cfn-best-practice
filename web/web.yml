@@ -133,3 +133,9 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${SystemName}-${Env}-instance-sg
+
+Outputs:
+  SgAlb:
+    Value: !Ref SgAlb
+    Export:
+      Name: !Sub ${AWS::StackName}-SgAlb
